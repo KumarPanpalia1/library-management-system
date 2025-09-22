@@ -9,6 +9,9 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [books, setBooks] = useState([]);
   const [editBook, setEditBook] = useState(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const API = axios.create({ baseURL: "http://localhost:4000/api/books" });
 
@@ -18,14 +21,16 @@ export default function App() {
     if (token) setUser({ token });
   }, []);
 
-  // Fetch all books
+  // Fetch books with search & pagination
   const fetchBooks = async () => {
     if (!user) return;
     try {
       const res = await API.get("/", {
         headers: { Authorization: `Bearer ${user.token}` },
+        params: { author: search, page, limit: 5 },
       });
       setBooks(res.data.books);
+      setTotalPages(Math.ceil(res.data.total / res.data.limit));
     } catch (err) {
       console.error(err);
     }
@@ -33,10 +38,11 @@ export default function App() {
 
   useEffect(() => {
     fetchBooks();
-  }, [user]);
+  }, [user, page, search]);
 
   const addBook = async (book) => {
     await API.post("/", book, { headers: { Authorization: `Bearer ${user.token}` } });
+    setPage(1); // reset to first page
     fetchBooks();
   };
 
@@ -71,8 +77,27 @@ export default function App() {
     <div style={{ padding: "2rem" }}>
       <h1>Library Management</h1>
       <button onClick={logout}>Logout</button>
+
+      {/* Search Bar */}
+      <div style={{ margin: "1rem 0" }}>
+        <input
+          type="text"
+          placeholder="Search by author"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <button onClick={() => setPage(1)}>Search</button>
+      </div>
+
       <BookForm addBook={addBook} editBook={editBook} updateBook={updateBook} />
       <BookList books={books} setEditBook={setEditBook} deleteBook={deleteBook} />
+
+      {/* Pagination */}
+      <div style={{ marginTop: "1rem" }}>
+        <button disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button>
+        <span style={{ margin: "0 1rem" }}>Page {page} of {totalPages}</span>
+        <button disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</button>
+      </div>
     </div>
   );
 }
