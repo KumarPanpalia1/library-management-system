@@ -1,35 +1,78 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState, useEffect } from "react";
+import axios from "axios";
+import BookForm from "./components/bookform.jsx";
+import BookList from "./components/booklist.jsx";
+import Login from "./components/login.jsx";
+import Register from "./components/register.jsx";
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [books, setBooks] = useState([]);
+  const [editBook, setEditBook] = useState(null);
+
+  const API = axios.create({ baseURL: "http://localhost:4000/api/books" });
+
+  // Check token on load
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) setUser({ token });
+  }, []);
+
+  // Fetch all books
+  const fetchBooks = async () => {
+    if (!user) return;
+    try {
+      const res = await API.get("/", {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      setBooks(res.data.books);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchBooks();
+  }, [user]);
+
+  const addBook = async (book) => {
+    await API.post("/", book, { headers: { Authorization: `Bearer ${user.token}` } });
+    fetchBooks();
+  };
+
+  const updateBook = async (id, book) => {
+    await API.put(`/${id}`, book, { headers: { Authorization: `Bearer ${user.token}` } });
+    setEditBook(null);
+    fetchBooks();
+  };
+
+  const deleteBook = async (id) => {
+    await API.delete(`/${id}`, { headers: { Authorization: `Bearer ${user.token}` } });
+    fetchBooks();
+  };
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    setUser(null);
+  };
+
+  if (!user) {
+    return (
+      <div style={{ padding: "2rem" }}>
+        <h1>Library App</h1>
+        <Register setUser={setUser} />
+        <hr />
+        <Login setUser={setUser} />
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div style={{ padding: "2rem" }}>
+      <h1>Library Management</h1>
+      <button onClick={logout}>Logout</button>
+      <BookForm addBook={addBook} editBook={editBook} updateBook={updateBook} />
+      <BookList books={books} setEditBook={setEditBook} deleteBook={deleteBook} />
+    </div>
+  );
 }
-
-export default App
